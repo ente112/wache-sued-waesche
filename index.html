@@ -48,7 +48,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:25px}
 <main>
 <header>
 <div class="emoji">🚒🧺</div>
-<h1>Wachen-Wäsche</h1>
+<h1>Wäsche-Helfer</h1>
 <div class="subtitle">Wachabteilung 3</div>
 </header>
 
@@ -144,7 +144,9 @@ const categories = [
  "Kinderrückhaltesystem",
  "Decken",
  "Handtücher/Bettwäsche",
- "Sportkleidung"
+ "Sportkleidung",
+ "Schnittschutzkleidung"
+ "Trockentücher"
 ];
 
 const defaults = {
@@ -420,7 +422,6 @@ async function startApp() {
    ready = true;
    $("connection").textContent = "🟢 Mit der gemeinsamen Wachen-Datenbank verbunden";
    render();
-  render();
   }, error => {
    console.error("FIRESTORE FEHLER:", error);
    $("connection").textContent = "🔴 Datenbankfehler: " + error.code + " – " + error.message;
