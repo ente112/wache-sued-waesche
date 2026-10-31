@@ -115,11 +115,12 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:25px}
 </main>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import {
- getFirestore, doc, onSnapshot, runTransaction
-} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+ getAuth,
+ signInAnonymously,
+ signInWithEmailAndPassword,
+ signOut
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
 const firebaseConfig = {
  apiKey: "AIzaSyDrl0ZhWo77K0u4gveh8cbvD5smTNzZ8PM",
