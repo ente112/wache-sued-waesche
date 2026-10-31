@@ -232,17 +232,11 @@ function renderQueue() {
  `).join("");
 }
 
+
 function renderSettings() {
- $("settings").innerHTML = categories.map(category => `
-  <div class="field">
-   <label for="time-${categories.indexOf(category)}">${escapeHtml(category)} (Min.)</label>
-   <input type="number" min="1" max="600"
-    id="time-${categories.indexOf(category)}"
-    data-setting="${escapeHtml(category)}"
-    value="${Number(state.settings?.[category] || defaults[category])}">
-  </div>
- `).join("");
+ $("settings").innerHTML = "";
 }
+
 
 function render() {
  if (!state) return;
