@@ -403,10 +403,11 @@ async function startApp() {
    ready = true;
    $("connection").textContent = "🟢 Mit der gemeinsamen Wachen-Datenbank verbunden";
    render();
+  render();
   }, error => {
-   console.error(error);
-   $("connection").textContent = "🔴 Datenbankfehler: " + error.message;
-  });
+   console.error("FIRESTORE FEHLER:", error);
+   $("connection").textContent = "🔴 Datenbankfehler: " + error.code + " – " + error.message;
+});
 
  } catch (error) {
   console.error(error);
