@@ -1,1 +1,427 @@
 
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#111827">
+<title>Wachen-Wäsche 🚒</title>
+<style>
+:root{color-scheme:dark;--bg:#111827;--card:#1f2937;--muted:#9ca3af;--accent:#f59e0b;--line:#374151}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:20px 15px 45px}
+main{max-width:650px;margin:auto}
+header{text-align:center;padding:15px 0 22px}
+header .emoji{font-size:42px}
+h1{font-size:27px;margin:7px 0}
+.subtitle{color:var(--muted);font-size:14px}
+h2{font-size:19px;margin:0 0 15px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:17px;padding:18px;margin:13px 0}
+.machine{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.machine-icon{font-size:30px}
+.machine-name{font-weight:700;font-size:17px}
+.machine-status{font-size:13px;color:var(--muted);margin-top:5px}
+.timer{font-size:29px;font-weight:800;font-variant-numeric:tabular-nums;margin:9px 0}
+button,select,input{font:inherit;border-radius:11px;border:1px solid var(--line);padding:12px;background:#111827;color:white}
+button{cursor:pointer;font-weight:650}
+button.primary{background:var(--accent);color:#241500;border:0}
+button.secondary{background:#374151}
+button.danger{background:#7f1d1d;border:0}
+button:disabled{opacity:.4;cursor:not-allowed}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.actions button{flex:1}
+.field{display:flex;flex-direction:column;gap:7px;margin:12px 0}
+label{font-size:13px;color:#d1d5db}
+select,input{width:100%}
+.queue-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.queue-item:last-child{border:0}
+.queue-item small{display:block;color:var(--muted);margin-top:4px}
+.empty{color:var(--muted);text-align:center;padding:18px 5px}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.settings-grid .field{margin:4px 0}
+.status{font-size:12px;color:var(--muted);text-align:center;margin:18px 0}
+.pill{display:inline-block;background:#374151;border-radius:20px;padding:5px 9px;font-size:12px;color:#d1d5db}
+footer{text-align:center;color:var(--muted);font-size:12px;margin-top:25px}
+</style>
+</head>
+<body>
+<main>
+<header>
+<div class="emoji">🚒🧺</div>
+<h1>Wachen-Wäsche</h1>
+<div class="subtitle">Gemeinsam organisiert. Einfach sauber.</div>
+</header>
+
+<section class="card">
+<h2>🫧 Waschmaschine</h2>
+<div class="machine">
+<div>
+<div class="machine-name">Waschmaschine</div>
+<div class="machine-status" id="washerStatus">Bereit</div>
+<div class="timer" id="washerTimer">00:00:00</div>
+</div>
+<div class="machine-icon">🫧</div>
+</div>
+<div class="actions">
+<button class="primary" id="washerStart">▶ Start</button>
+<button class="secondary" id="washerStop">■ Beenden</button>
+</div>
+</section>
+
+<section class="card">
+<h2>♨️ Trockner</h2>
+<div class="machine">
+<div>
+<div class="machine-name">Trockner</div>
+<div class="machine-status" id="dryerStatus">Bereit</div>
+<div class="timer" id="dryerTimer">00:00:00</div>
+</div>
+<div class="machine-icon">♨️</div>
+</div>
+<div class="actions">
+<button class="primary" id="dryerStart">▶ Start</button>
+<button class="secondary" id="dryerStop">■ Beenden</button>
+</div>
+</section>
+
+<section class="card">
+<h2>➕ Wäsche hinzufügen</h2>
+<div class="field">
+<label for="category">Wäscheart</label>
+<select id="category"></select>
+</div>
+<button class="primary" id="addQueue" style="width:100%">Zur Warteschlange hinzufügen</button>
+</section>
+
+<section class="card">
+<h2>📋 Gemeinsame Warteschlange <span class="pill" id="queueCount">0</span></h2>
+<div id="queue"><div class="empty">Lade Warteschlange …</div></div>
+</section>
+
+<section class="card">
+<h2>⚙️ Laufzeiten einstellen</h2>
+<p class="subtitle">Die Zeiten gelten für alle Nutzer dieser App.</p>
+<div class="settings-grid" id="settings"></div>
+</section>
+
+<section class="card">
+<h2>🔔 Benachrichtigungen</h2>
+<p class="subtitle">Benachrichtigung auf diesem Gerät, solange die App aktiv ist.</p>
+<button class="secondary" id="notifications">Benachrichtigungen aktivieren</button>
+</section>
+
+<div class="status" id="connection">Verbinde mit der Wachen-Datenbank …</div>
+<footer>Wachen-Wäsche · Gemeinsame Nutzung</footer>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import {
+ getFirestore, doc, onSnapshot, runTransaction
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const firebaseConfig = {
+ apiKey: "AIzaSyDrl0ZhWo77K0u4gveh8cbvD5smTNzZ8PM",
+ authDomain: "wachesued-waesche.firebaseapp.com",
+ projectId: "wachesued-waesche",
+ storageBucket: "wachesued-waesche.firebasestorage.app",
+ messagingSenderId: "642268573884",
+ appId: "1:642268573884:web:38a67e3d5350cbdca0a0b9"
+};
+
+const categories = [
+ "Tagesdienst",
+ "Rettungsdienst",
+ "Fleecejacken",
+ "Einsatzkleidung",
+ "Höhenretter",
+ "Kinderrückhaltesystem",
+ "Decken",
+ "Handtücher/Bettwäsche",
+ "Sportkleidung"
+];
+
+const defaults = {
+ "Tagesdienst": 60,
+ "Rettungsdienst": 60,
+ "Fleecejacken": 45,
+ "Einsatzkleidung": 90,
+ "Höhenretter": 90,
+ "Kinderrückhaltesystem": 45,
+ "Decken": 60,
+ "Handtücher/Bettwäsche": 60,
+ "Sportkleidung": 45
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const stateRef = doc(db, "app", "state");
+
+let state = null;
+let ready = false;
+let notificationEnabled = false;
+
+const $ = id => document.getElementById(id);
+
+function escapeHtml(value) {
+ return String(value).replace(/[&<>"']/g, c => ({
+  "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+ }[c]));
+}
+
+function formatTime(seconds) {
+ seconds = Math.max(0, Math.floor(seconds));
+ const h = String(Math.floor(seconds / 3600)).padStart(2,"0");
+ const m = String(Math.floor(seconds % 3600 / 60)).padStart(2,"0");
+ const s = String(seconds % 60).padStart(2,"0");
+ return `${h}:${m}:${s}`;
+}
+
+function remaining(machine) {
+ if (!machine) return 0;
+ const elapsed = (Date.now() - machine.startedAt) / 1000;
+ return Math.max(0, machine.durationMin * 60 - elapsed);
+}
+
+function renderMachine(type, name) {
+ const machine = state?.machines?.[type];
+ const status = $(type + "Status");
+ const timer = $(type + "Timer");
+ const start = $(type + "Start");
+ const stop = $(type + "Stop");
+
+ if (!machine) {
+  status.textContent = "Bereit – wartet auf Start";
+  timer.textContent = "00:00:00";
+  start.disabled = false;
+  stop.disabled = true;
+ } else {
+  const left = remaining(machine);
+  status.textContent = left > 0
+   ? `${machine.category} · Läuft`
+   : `${machine.category} · Zeit abgelaufen`;
+  timer.textContent = formatTime(left);
+  start.disabled = true;
+  stop.disabled = false;
+ }
+}
+
+function renderQueue() {
+ const queue = state?.queue || [];
+ $("queueCount").textContent = queue.length;
+ if (!queue.length) {
+  $("queue").innerHTML = '<div class="empty">Aktuell keine Wäsche in der Warteschlange.</div>';
+  return;
+ }
+ $("queue").innerHTML = queue.map((item,index) => `
+  <div class="queue-item">
+   <div><strong>${index + 1}. ${escapeHtml(item.category)}</strong>
+   <small>Wartet auf die Waschmaschine</small></div>
+   <button class="danger" data-remove="${escapeHtml(item.id)}">Entfernen</button>
+  </div>
+ `).join("");
+}
+
+function renderSettings() {
+ $("settings").innerHTML = categories.map(category => `
+  <div class="field">
+   <label for="time-${categories.indexOf(category)}">${escapeHtml(category)} (Min.)</label>
+   <input type="number" min="1" max="600"
+    id="time-${categories.indexOf(category)}"
+    data-setting="${escapeHtml(category)}"
+    value="${Number(state.settings?.[category] || defaults[category])}">
+  </div>
+ `).join("");
+}
+
+function render() {
+ if (!state) return;
+ renderMachine("washer", "Waschmaschine");
+ renderMachine("dryer", "Trockner");
+ renderQueue();
+ renderSettings();
+ $("category").innerHTML = categories.map(c =>
+  `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`
+ ).join("");
+}
+
+async function changeState(change) {
+ if (!ready) {
+  alert("Die Verbindung zur Datenbank ist noch nicht bereit.");
+  return;
+ }
+ try {
+  await runTransaction(db, async transaction => {
+   const snap = await transaction.get(stateRef);
+   if (!snap.exists()) throw new Error("Datenbank noch nicht initialisiert.");
+   const current = snap.data();
+   const updated = change(current);
+   transaction.set(stateRef, updated);
+  });
+ } catch (error) {
+  console.error(error);
+  alert("Änderung nicht gespeichert: " + error.message);
+ }
+}
+
+function makeId() {
+ return crypto.randomUUID
+  ? crypto.randomUUID()
+  : String(Date.now()) + Math.random().toString(16).slice(2);
+}
+
+$("addQueue").addEventListener("click", async () => {
+ const category = $("category").value;
+ await changeState(current => ({
+  ...current,
+  queue: [...(current.queue || []), {id:makeId(),category}]
+ }));
+});
+
+$("washerStart").addEventListener("click", async () => {
+ await changeState(current => {
+  if (current.machines?.washer) return current;
+  if (!current.queue?.length) {
+   alert("Die Warteschlange ist leer.");
+   return current;
+  }
+  const [item,...rest] = current.queue;
+  const durationMin = Number(current.settings?.[item.category] || defaults[item.category] || 60);
+  return {
+   ...current,
+   queue:rest,
+   machines:{
+    ...current.machines,
+    washer:{category:item.category,startedAt:Date.now(),durationMin}
+   }
+  };
+ });
+});
+
+$("dryerStart").addEventListener("click", async () => {
+ const category = prompt("Welche Wäsche kommt in den Trockner?\n\n" + categories.join("\n"));
+ if (!category || !categories.includes(category)) return;
+ await changeState(current => {
+  if (current.machines?.dryer) return current;
+  const durationMin = Number(current.settings?.[category] || defaults[category] || 60);
+  return {
+   ...current,
+   machines:{
+    ...current.machines,
+    dryer:{category,startedAt:Date.now(),durationMin}
+   }
+  };
+ });
+});
+
+$("washerStop").addEventListener("click", async () => {
+ if (!confirm("Waschmaschine wirklich beenden?")) return;
+ await changeState(current => ({
+  ...current,
+  machines:{...current.machines,washer:null}
+ }));
+});
+
+$("dryerStop").addEventListener("click", async () => {
+ if (!confirm("Trockner wirklich beenden?")) return;
+ await changeState(current => ({
+  ...current,
+  machines:{...current.machines,dryer:null}
+ }));
+});
+
+$("queue").addEventListener("click", async event => {
+ const button = event.target.closest("[data-remove]");
+ if (!button) return;
+ const id = button.dataset.remove;
+ await changeState(current => ({
+  ...current,
+  queue:(current.queue || []).filter(item => item.id !== id)
+ }));
+});
+
+$("settings").addEventListener("change", async event => {
+ const input = event.target.closest("[data-setting]");
+ if (!input) return;
+ const category = input.dataset.setting;
+ const value = Math.max(1,Math.min(600,Number(input.value) || 1));
+ input.value = value;
+ await changeState(current => ({
+  ...current,
+  settings:{...current.settings,[category]:value}
+ }));
+});
+
+$("notifications").addEventListener("click", async () => {
+ if (!("Notification" in window)) {
+  alert("Dieser Browser unterstützt keine Benachrichtigungen.");
+  return;
+ }
+ const permission = await Notification.requestPermission();
+ notificationEnabled = permission === "granted";
+ $("notifications").textContent = notificationEnabled
+  ? "✓ Benachrichtigungen aktiviert"
+  : "Benachrichtigungen aktivieren";
+});
+
+let notified = {};
+function checkFinished() {
+ if (!state || !notificationEnabled) return;
+ for (const type of ["washer","dryer"]) {
+  const machine = state.machines?.[type];
+  if (!machine) continue;
+  const key = type + machine.startedAt;
+  if (remaining(machine) <= 0 && !notified[key]) {
+   notified[key] = true;
+   new Notification(type === "washer" ? "Waschmaschine fertig" : "Trockner fertig", {
+    body: machine.category + " ist fertig."
+   });
+  }
+ }
+}
+
+async function startApp() {
+ try {
+  await signInAnonymously(auth);
+  await runTransaction(db, async transaction => {
+   const snap = await transaction.get(stateRef);
+   if (!snap.exists()) {
+    transaction.set(stateRef,{
+     queue:[],
+     machines:{washer:null,dryer:null},
+     settings:defaults
+    });
+   }
+  });
+
+  onSnapshot(stateRef, snapshot => {
+   if (!snapshot.exists()) return;
+   state = snapshot.data();
+   ready = true;
+   $("connection").textContent = "🟢 Mit der gemeinsamen Wachen-Datenbank verbunden";
+   render();
+  }, error => {
+   console.error(error);
+   $("connection").textContent = "🔴 Datenbankfehler: " + error.message;
+  });
+
+ } catch (error) {
+  console.error(error);
+  $("connection").textContent = "🔴 Verbindung fehlgeschlagen: " + error.message;
+ }
+}
+
+setInterval(() => {
+ if (!state) return;
+ renderMachine("washer","Waschmaschine");
+ renderMachine("dryer","Trockner");
+ checkFinished();
+},1000);
+
+startApp();
+</script>
+</body>
+</html>
+
