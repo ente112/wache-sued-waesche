@@ -288,7 +288,7 @@ $("washerStart").addEventListener("click", async () => {
    return current;
   }
   const [item,...rest] = current.queue;
-  const durationMin = Number(current.settings?.[item.category] || defaults[item.category] || 60);
+  const durationMin = Number(defaults[item.category] || 60);
   return {
    ...current,
    queue:rest,
@@ -305,7 +305,7 @@ $("dryerStart").addEventListener("click", async () => {
  if (!category || !categories.includes(category)) return;
  await changeState(current => {
   if (current.machines?.dryer) return current;
-  const durationMin = Number(current.settings?.[category] || defaults[category] || 60);
+  const durationMin = Number(dryerDefaults[category] || 60);
   return {
    ...current,
    machines:{
